@@ -78,12 +78,12 @@
     </label>
 
     <label>
-      原先技能秒數：
+      技能秒數：
       <input type="number" id="original" placeholder="例如 120">
     </label>
 
     <label>
-      CD減少秒數(含羈絆翅膀)：
+      裝備CD減少秒數(含羈絆翅膀)：
       <select id="reduced">
         <option value="0">0</option><option value="1">1</option><option value="2">2</option>
         <option value="3">3</option><option value="4">4</option><option value="5">5</option>
@@ -103,6 +103,7 @@
     <div style="margin-bottom:1rem">
       <button id="startAll">全部開始</button>
       <button id="clearAll">全部清除</button>
+      <button id="restartDone">重啟結束項</button>
     </div>
     <div id="timerRows"></div>
   </section>
@@ -157,32 +158,59 @@
     });
   });
 
+  /* 抓取 CD 計算機表單元件 */
+  const percentage = document.getElementById('percentage');
+  const original   = document.getElementById('original');
+  const reduced    = document.getElementById('reduced');
+  const resultBox  = document.getElementById('result');
+
   /* --- CD 帽計算機 --- */
-  document.getElementById('calc').addEventListener('click',()=>{
-    const pct   = parseFloat(document.getElementById('percentage').value)/100;
-    const orig  = parseFloat(document.getElementById('original').value);
-    const red   = parseInt(document.getElementById('reduced').value,10);
+  calc.addEventListener('click', () => {
+  const pct  = parseFloat(percentage.value) / 100;
+  const orig = parseFloat(original.value);
+  const red  = parseInt(reduced.value, 10);
+  if (isNaN(orig) || orig <= 0) {
+    result.textContent = '請輸入大於 0 的技能秒數。';
+    return;
+  }
 
-    if(isNaN(orig)){
-      document.getElementById('result').textContent='請輸入原先技能秒數。';
-      return;
-    }
+  /* 1. 精靈卡％（下限 1 秒） */
+  let afterCard = Math.max(orig * (1 - pct), 1);
+  const elfReduction = orig - afterCard;           // ← ❶ 精靈卡實際減少
 
-    let timeAfterCard = orig * (1 - pct), result;
-    if(timeAfterCard>10){
-      if(timeAfterCard - red > 10){
-        result = timeAfterCard - red;
-      }else{
-        const used=timeAfterCard-10;
-        const remaining=red-used;
-        result = 10 * (1 - 0.05*remaining);
+  let final;                                       // 最終 CD
+  let equipReduction = 0;                          // ❷ 裝備實際減少
+
+  /* 2. 若 afterCard < 5，裝備不生效 */
+  if (afterCard < 5) {
+    final = afterCard;
+  } else {
+    /* 3. 裝備公式（afterCard ≥ 5 時才跑） */
+    let result;
+    if (afterCard > 10) {
+      if (afterCard - red > 10) {
+        result = afterCard - red;
+      } else {
+        const used      = afterCard - 10;
+        const remaining = red - used;
+        result = 10 * (1 - 0.05 * remaining);
       }
-    }else{
-      result = timeAfterCard * (1 - 0.05*red);
+    } else {
+      result = afterCard * (1 - 0.05 * red);
     }
-    document.getElementById('result').textContent=
-      `精靈卡 ${pct*100}% 、原 CD ${orig}s、裝備 -${red}s → 最終 CD：${result.toFixed(3)} 秒`;
-  });
+
+    /* 4. 全局下限 5 秒 */
+    final = Math.max(result, 5);
+
+    /* ❷ 計算裝備實際減少量（可能被下限吃掉） */
+    equipReduction = afterCard - final;
+  }
+
+  /* 5. 輸出格式 */
+  result.textContent =
+    `原 CD ${orig}s，精靈卡減了 ${elfReduction.toFixed(2)}s CD，` +
+    `裝備減了 ${equipReduction.toFixed(2)}s CD，最終 CD ${final.toFixed(3)}s`;
+});
 
   /* ---------- 練等計時器：資料定義 ---------- */
   const timerDefs = [
@@ -311,7 +339,7 @@ function startTimer(id){
       disp.textContent = format(timers[id].remain);
 
       if (timers[id].remain <= 0){
-        clearTimer(id);                   // 歸零 → 停倒數、選單回「無」
+        clearTimer(id, /* resetSelect = */ false);                   // 歸零 → 停倒數、選單回「無」
         /* === ① 播提示音 === */
         document.getElementById('ding')
                 .play()
@@ -379,6 +407,21 @@ document.getElementById('startAll').addEventListener('click',()=>{
 });
 document.getElementById('clearAll').addEventListener('click',()=>{
   timerDefs.forEach(def=> clearTimer(def.id));
+});
+document.getElementById('restartDone').addEventListener('click', () => {
+  timerDefs.forEach(def => {
+    const sel = document.getElementById(`sel_${def.id}`);
+    const row = document.getElementById(`disp_${def.id}`).parentElement;
+
+    /* 條件：① 沒在倒數 ② 選單不是「無」 ③ 行背景 = 紅色 */
+    if (
+      !timers[def.id] &&
+      sel.value !== '無' &&
+      row.style.background === 'rgb(255, 221, 221)'
+    ){
+      startTimer(def.id);          // 重新倒數
+    }
+  });
 });
 
   </script>
