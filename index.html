@@ -36,6 +36,7 @@
     }
     section{display:none;padding:2rem}
     section.active{display:block}
+    .timer-row.running {background: #e0f7fa;    /* 淺青底 */}
     label{display:block;margin:.8rem 0}
     input,select,button{
       padding:.4rem .6rem;font-size:1rem;
@@ -51,6 +52,20 @@
       box-shadow:0 0 0 3px rgba(255,123,0,.25);       /* 外圈光暈 */
     }
     #result{margin-top:1rem;font-weight:bold}
+    /* CD 計算表格樣式 */
+    #result table {
+      border-collapse: collapse;
+      margin-top: .5rem;
+    }
+    #result th,
+    #result td {
+      padding: .3rem .6rem;
+      border: 1px solid #ccc;
+    }
+    #result th {
+      text-align: right;
+      color: #555;
+    }
     footer{margin-top:auto;text-align:center;padding:1rem 0;font-size:.85rem;color:#666}
   </style>
 </head>
@@ -163,6 +178,21 @@
   const original   = document.getElementById('original');
   const reduced    = document.getElementById('reduced');
   const resultBox  = document.getElementById('result');
+  const calc       = document.getElementById('calc');
+  // 讀 localStorage
+  percentage.value = localStorage.getItem('cd_percentage') || '5%';
+  reduced.value    = localStorage.getItem('cd_reduced')    || '0';
+  original.value   = localStorage.getItem('cd_original')   || '';
+
+  // 按 Enter 也觸發計算
+  [percentage, original, reduced].forEach(el => {
+    el.addEventListener('keydown', e => {
+      if (e.key === 'Enter') calc.click();
+    });
+  });
+  percentage.addEventListener('change', ()=> localStorage.setItem('cd_percentage', percentage.value));
+  reduced   .addEventListener('change', ()=> localStorage.setItem('cd_reduced',    reduced.value));
+  original  .addEventListener('change', ()=> localStorage.setItem('cd_original',   original.value));
 
   /* --- CD 帽計算機 --- */
   calc.addEventListener('click', () => {
@@ -170,7 +200,7 @@
   const orig = parseFloat(original.value);
   const red  = parseInt(reduced.value, 10);
   if (isNaN(orig) || orig <= 0) {
-    result.textContent = '請輸入大於 0 的技能秒數。';
+    resultBox.textContent = '請輸入大於 0 的技能秒數。';
     return;
   }
 
@@ -207,10 +237,15 @@
   }
 
   /* 5. 輸出格式 */
-  result.textContent =
-    `原 CD ${orig}s，精靈卡減了 ${elfReduction.toFixed(2)}s CD，` +
-    `裝備減了 ${equipReduction.toFixed(2)}s CD，最終 CD ${final.toFixed(3)}s`;
+  resultBox.innerHTML = `
+  <table>
+    <tr><th>原 CD</th><td>${orig.toFixed(2)}s</td></tr>
+    <tr><th>精靈卡減少</th><td>${elfReduction.toFixed(2)}s</td></tr>
+    <tr><th>裝備減少</th><td>${equipReduction.toFixed(2)}s</td></tr>
+    <tr><th>最終 CD</th><td>${final.toFixed(3)}s</td></tr>
+  </table>`;
 });
+
 
   /* ---------- 練等計時器：資料定義 ---------- */
   const timerDefs = [
@@ -301,7 +336,57 @@ timerDefs.forEach(def=>{
 });
 
 /* ---------- 計時器邏輯 ---------- */
-const timers = {}; // {id:{remain,intervalId}}
+/* 僅存各列的結束時間 (ms) */
+const timers = {};  // { id: { endTime: 1690000000000 } }
+let masterLoopId;
+
+/* 判斷頁面可見性自動切換 rAF / setTimeout */
+function scheduleNext(){
+  if (document.hidden){
+    masterLoopId = setTimeout(masterLoop, 1000);      // 背景：每秒對時一次
+  } else {
+    masterLoopId = requestAnimationFrame(masterLoop); // 前景：60 fps
+  }
+}
+document.addEventListener('visibilitychange', ()=>{   // 前景↔背景切換
+  if (document.hidden) {
+    cancelAnimationFrame(masterLoopId);
+  } else {
+    clearTimeout(masterLoopId);
+  }
+  scheduleNext();
+});
+
+function masterLoop(){
+  const now = Date.now();
+
+  Object.entries(timers).forEach(([id, t])=>{
+    const left = Math.max(0, Math.ceil((t.endTime - now)/1000)); // 剩餘整秒
+    const disp = document.getElementById(`disp_${id}`);
+    if (disp.textContent !== format(left)) disp.textContent = format(left);
+
+    /* 0 秒 → 觸發結束流程 (選單保留) */
+    if (left === 0){
+      const def = timerDefs.find(d=>d.id===id);
+      const row = disp.parentElement;
+
+      clearTimer(id, false);         // 保留選單
+      row.style.background = '#ffdddd';
+      document.getElementById('ding').play().catch(()=>{});
+      showToast(`${def.label} 已結束！`);
+      document.querySelector('header').scrollIntoView({behavior:'smooth'});
+      if (Notification.permission === 'granted') {
+        new Notification(`${def.label} 已結束！`, {
+          body: '點擊可返回計時頁面',
+          icon: 'assets/bell.png'
+        });
+      }
+    }
+  });
+
+  scheduleNext();   // 迴圈自己排下一次
+}
+scheduleNext();      // 頁面載入立即啟動
 
 function format(sec){
   const m=String(Math.floor(sec/60)).padStart(2,'0');
@@ -310,88 +395,41 @@ function format(sec){
 }
 
 function startTimer(id){
-  const def  = timerDefs.find(d=>d.id === id);
+  const row = document.getElementById(`disp_${id}`).parentElement;
+  const def  = timerDefs.find(d => d.id === id);
   const sel  = document.getElementById(`sel_${id}`);
-  const disp = document.getElementById(`disp_${id}`);
-  const row  = disp.parentElement;
   const img  = document.getElementById(`img_${id}`);
+  row.classList.add('running');
 
-  /* 先停舊倒數，不重設選單 */
-  clearTimer(id, false);
+  /* 解析選項秒數 */
+  const sec = def.options.find(o => o[0] === sel.value)?.[1];
+  if (sec == null){ clearTimer(id); return; }
 
-  const choice = sel.value;                                   // 目前選項
-  const sec = def.options.find(o=>o[0] === choice)?.[1] ?? null;
-
-  /* 立即同步圖示（就算是「無」也切換） */
-  updateIcon(def, choice, img);
-
-  /* 若選「無」就不開始倒數 */
-  if (sec === null){
-    disp.textContent = '00:00';
-    return;
-  }
-
-  /* 建立新的倒數 */
-  timers[id] = {
-    remain: sec,
-    intervalId: setInterval(() => {
-      timers[id].remain--;
-      disp.textContent = format(timers[id].remain);
-
-      if (timers[id].remain <= 0){
-        clearTimer(id, /* resetSelect = */ false);                   // 歸零 → 停倒數、選單回「無」
-        /* === ① 播提示音 === */
-        document.getElementById('ding')
-                .play()
-                .catch(()=>{});            // iOS 若未互動會拒絕，自行忽略
-        showToast(`${def.label} 已結束！`);
-
-        /* === ② 捲到頂 & 行變紅 === */
-        row.style.background = '#ffdddd';
-        document.querySelector('header')
-        .scrollIntoView({ behavior: 'smooth' });
-
-        /* === ③ 標題閃動 + 系統通知 === */
-        document.title = '⏰ 計時器時間到！';
-        if (Notification.permission === 'granted'){
-          new Notification(`${def.label} 已結束！`, {
-          body: '點擊可返回計時頁面',
-          icon: 'assets/bell.png'   
-        });
-        } else if (Notification.permission !== 'denied'){
-          Notification.requestPermission();
-        }
-        checkAllRows();
-      }
-    }, 1000)
-  };
-
-  disp.textContent = format(sec);
+  /* 換圖、清紅底 */
+  updateIcon(def, sel.value, img);
   row.style.background = '';
-  checkAllRows();
+
+  /* 設定絕對結束時間 */
+  timers[id] = { endTime: Date.now() + sec*1000 };
+
+  document.getElementById(`disp_${id}`).textContent = format(sec);
 }
 
 
 function clearTimer(id, resetSelect = true){
-  if (timers[id]){
-    clearInterval(timers[id].intervalId);
-    delete timers[id];
-  }
+  delete timers[id];                       // 沒有 intervalId 了
 
   const sel  = document.getElementById(`sel_${id}`);
   const disp = document.getElementById(`disp_${id}`);
   const img  = document.getElementById(`img_${id}`);
-  const def  = timerDefs.find(d=>d.id === id);
+  const def  = timerDefs.find(d => d.id === id);
 
   disp.textContent = '00:00';
-
-  if (resetSelect){            // 按「清除」或倒數結束時才恢復「無」
-    sel.value = '無';
-  }
-
-  updateIcon(def, sel.value, img);        // 圖示對應現在的選項
+  if (resetSelect) sel.value = '無';
+  updateIcon(def, sel.value, img);
   disp.parentElement.style.background = '';
   checkAllRows();
+  disp.parentElement.classList.remove('running');
 }
 
 /* 檢查是否所有 row 都是紅色；若否，取消整頁置頂  */
@@ -408,18 +446,15 @@ document.getElementById('startAll').addEventListener('click',()=>{
 document.getElementById('clearAll').addEventListener('click',()=>{
   timerDefs.forEach(def=> clearTimer(def.id));
 });
-document.getElementById('restartDone').addEventListener('click', () => {
+/* 重啟結束項 */
+const restartDone = document.getElementById('restartDone');
+restartDone.addEventListener('click', () => {
   timerDefs.forEach(def => {
     const sel = document.getElementById(`sel_${def.id}`);
     const row = document.getElementById(`disp_${def.id}`).parentElement;
-
-    /* 條件：① 沒在倒數 ② 選單不是「無」 ③ 行背景 = 紅色 */
-    if (
-      !timers[def.id] &&
-      sel.value !== '無' &&
-      row.style.background === 'rgb(255, 221, 221)'
-    ){
-      startTimer(def.id);          // 重新倒數
+    if (!timers[def.id] && sel.value !== '無' &&
+        row.style.background === 'rgb(255, 221, 221)'){
+      startTimer(def.id);
     }
   });
 });
