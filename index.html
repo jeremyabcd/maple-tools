@@ -1,1 +1,391 @@
-<h1>網站架設成功！</h1>
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <title>楓之谷工具箱</title>
+
+  <style>
+    :root{
+      --main-color:#ff7b00;
+      --bg-grad:linear-gradient(135deg,#ffe6c9 0%,#fff8ee 40%,#e9f6ff 100%);
+    }
+    body{
+      margin:0;font-family: "Segoe UI",sans-serif;
+      background:var(--bg-grad);
+      min-height:100vh;
+      display:flex;flex-direction:column;
+    }
+    header{background:#fff8ee;padding:1rem 2rem;box-shadow:0 2px 4px rgba(0,0,0,.1)}
+    h1{margin:0;font-size:1.6rem;color:var(--main-color)}
+    nav{margin-top:1rem;border-bottom:2px solid #ddd;display:flex;gap:1rem}
+    nav button{
+      background:none;border:none;padding:.5rem 1rem;font-size:1rem;
+      cursor:pointer;border-bottom:3px solid transparent;
+      border-radius:8px 8px 0 0;
+      transition:background .15s, box-shadow .15s;             
+    }
+    nav button:hover{
+      background:rgba(0,0,0,.05);
+      box-shadow:0 2px 4px rgba(0,0,0,.15);
+    }
+    nav button.active{
+      color:var(--main-color);
+      border-color:var(--main-color);
+      font-weight:bold;
+      background:#ffffff;                    
+    }
+    section{display:none;padding:2rem}
+    section.active{display:block}
+    label{display:block;margin:.8rem 0}
+    input,select,button{
+      padding:.4rem .6rem;font-size:1rem;
+      border-radius:8px;                     
+      border:1px solid #ccc;
+      box-shadow:inset 0 1px 2px rgba(0,0,0,.07);
+    }
+    button{cursor:pointer;background:#fff;}
+    button:hover{background:#f8f8f8;}
+    input:focus,select:focus{
+      outline:none;                                   /* 去掉預設藍框 */
+      border-color:var(--main-color);                 /* 換成主題色 */
+      box-shadow:0 0 0 3px rgba(255,123,0,.25);       /* 外圈光暈 */
+    }
+    #result{margin-top:1rem;font-weight:bold}
+    footer{margin-top:auto;text-align:center;padding:1rem 0;font-size:.85rem;color:#666}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>楓之谷工具箱</h1>
+    <nav>
+      <button data-tab="cd"   class="active">CD 帽計算機</button>
+      <button data-tab="timer">練等計時器</button>
+      <button data-tab="star">偷星計算機</button>
+    </nav>
+  </header>
+
+  <!-- CD 帽計算機 -->
+  <section id="cd" class="active">
+    <h2>CD 帽計算機</h2>
+
+    <label>
+      精靈角色卡減少%數：
+      <select id="percentage">
+        <option>0%</option>
+        <option selected>5%</option>
+        <option>6%</option>
+      </select>
+    </label>
+
+    <label>
+      原先技能秒數：
+      <input type="number" id="original" placeholder="例如 120">
+    </label>
+
+    <label>
+      CD減少秒數(含羈絆翅膀)：
+      <select id="reduced">
+        <option value="0">0</option><option value="1">1</option><option value="2">2</option>
+        <option value="3">3</option><option value="4">4</option><option value="5">5</option>
+        <option value="6">6</option><option value="7">7</option><option value="8">8</option>
+        <option value="9">9</option><option value="10">10</option>
+      </select>
+      秒
+    </label>
+
+    <button id="calc">計算</button>
+    <div id="result"></div>
+  </section>
+
+  <!-- 練等計時器 -->
+  <section id="timer">
+    <h2>練等計時器</h2>
+    <div style="margin-bottom:1rem">
+      <button id="startAll">全部開始</button>
+      <button id="clearAll">全部清除</button>
+    </div>
+    <div id="timerRows"></div>
+  </section>
+
+
+
+  <section id="star"><h2>偷星計算機</h2><p>施工中…</p></section>
+
+
+
+  <footer>© 2025 Maple Tools</footer>
+
+  <script>
+  if ('Notification' in window && Notification.permission === 'default') {
+  // 顯示瀏覽器原生對話框讓使用者按「允許」
+  Notification.requestPermission();
+}  
+  /* 依選項切換圖示 ── 小 ⇄ 大 */
+  function updateIcon(def, choice, img){
+    switch (def.id){
+      case 'wealth_potion':
+      case 'exp_potion':
+        img.src = (choice === '2小時') ? def.iconLarge : def.iconSmall;
+        break;
+      case 'firestarter':
+        img.src = (choice === '30分鐘') ? def.iconLarge : def.iconSmall;
+        break;
+      case 'exp_double':
+        img.src = (choice === '15分鐘') ? def.iconLarge : def.iconSmall;
+        break;
+      default:
+        img.src = def.iconSmall;
+    }
+  }
+  
+  function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.opacity = '1';
+  setTimeout(() => t.style.opacity = '0', 3000);   // 3 秒後淡出
+}
+
+  /* --- 分頁切換 --- */
+  const navBtns=document.querySelectorAll('nav button');
+  const sections=document.querySelectorAll('section');
+  navBtns.forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      navBtns.forEach(b=>b.classList.remove('active'));
+      sections.forEach(s=>s.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById(btn.dataset.tab).classList.add('active');
+    });
+  });
+
+  /* --- CD 帽計算機 --- */
+  document.getElementById('calc').addEventListener('click',()=>{
+    const pct   = parseFloat(document.getElementById('percentage').value)/100;
+    const orig  = parseFloat(document.getElementById('original').value);
+    const red   = parseInt(document.getElementById('reduced').value,10);
+
+    if(isNaN(orig)){
+      document.getElementById('result').textContent='請輸入原先技能秒數。';
+      return;
+    }
+
+    let timeAfterCard = orig * (1 - pct), result;
+    if(timeAfterCard>10){
+      if(timeAfterCard - red > 10){
+        result = timeAfterCard - red;
+      }else{
+        const used=timeAfterCard-10;
+        const remaining=red-used;
+        result = 10 * (1 - 0.05*remaining);
+      }
+    }else{
+      result = timeAfterCard * (1 - 0.05*red);
+    }
+    document.getElementById('result').textContent=
+      `精靈卡 ${pct*100}% 、原 CD ${orig}s、裝備 -${red}s → 最終 CD：${result.toFixed(3)} 秒`;
+  });
+
+  /* ---------- 練等計時器：資料定義 ---------- */
+  const timerDefs = [
+  { id:'wealth_potion', label:'財物秘藥',
+    iconSmall:'assets/Small_Wealth_Acquisition_Potion.png',
+    iconLarge:'assets/Wealth_Acquisition_Potion.png',
+    options:[['無',null],['30分鐘',1800],['2小時',7200]] },
+
+  { id:'exp_potion', label:'經驗秘藥',
+    iconSmall:'assets/Small_EXP_Accumulation_Potion.png',
+    iconLarge:'assets/EXP_Accumulation_Potion.png',
+    options:[['無',null],['30分鐘',1800],['2小時',7200]] },
+
+  { id:'firestarter', label:'燃燒之戒',
+    iconSmall:'assets/Firestarter_coupon.png',
+    iconLarge:'assets/Firestarter.png',
+    options:[['無',null],['15分鐘',900],['30分鐘',1800]] },   
+
+  { id:'exp_double', label:'經驗加倍',
+    iconSmall:'assets/exp_double.png',
+    iconLarge:'assets/15min.png',                             
+    options:[['無',null],['10分鐘',600],['15分鐘',900],['20分鐘',1200],['30分鐘',1800],['1小時',3600]] },
+
+  { id:'luck',          label:'聯盟幸運',
+    iconSmall:'assets/luck.png',
+    options:[['無',null],['10分鐘',600],['20分鐘',1200],['30分鐘',1800]] },
+
+  { id:'wealth',        label:'聯盟之富',
+    iconSmall:'assets/wealth.png',
+    options:[['無',null],['10分鐘',600],['20分鐘',1200],['30分鐘',1800]] },
+
+  { id:'lie_detector',  label:'被測謊了',
+    iconSmall:'assets/polygraph.png',
+    options:[['無',null],['10分鐘',600]] }
+];
+
+
+/* ---------- 動態產生 HTML ---------- */
+const rowsContainer = document.getElementById('timerRows');
+timerDefs.forEach(def=>{
+  const row = document.createElement('div');
+  row.className='timer-row';
+  row.style="display:flex;align-items:center;gap:.5rem;margin:.3rem 0";
+
+  // 圖示
+  const img = document.createElement('img');
+  img.src = def.iconSmall;
+  img.alt = def.label;
+  img.style = "width:24px;height:24px";
+  img.id = `img_${def.id}`;
+  row.appendChild(img);
+
+  // 標籤文字
+  const label = document.createElement('span');
+  label.textContent = def.label;
+  label.style="width:100px;display:inline-block";
+  row.appendChild(label);
+
+  // 時間下拉
+  const sel = document.createElement('select');
+  sel.id = `sel_${def.id}`;
+  def.options.forEach(([txt,_s])=>{
+    const opt=document.createElement('option');opt.textContent=txt;sel.appendChild(opt);
+  });
+  row.appendChild(sel);
+  sel.addEventListener('change', () => updateIcon(def, sel.value, img));
+
+  // 開始 / 清除
+  const startBtn=document.createElement('button');
+  startBtn.textContent='開始';
+  const clearBtn=document.createElement('button');
+  clearBtn.textContent='清除';
+  row.appendChild(startBtn);
+  row.appendChild(clearBtn);
+
+  // 倒數顯示
+  const disp=document.createElement('span');
+  disp.id=`disp_${def.id}`;
+  disp.textContent='00:00';
+  disp.style="width:60px;text-align:center";
+  row.appendChild(disp);
+
+  rowsContainer.appendChild(row);
+
+  // 綁定事件
+  startBtn.addEventListener('click',()=> startTimer(def.id));
+  clearBtn.addEventListener('click', ()=> clearTimer(def.id));
+});
+
+/* ---------- 計時器邏輯 ---------- */
+const timers = {}; // {id:{remain,intervalId}}
+
+function format(sec){
+  const m=String(Math.floor(sec/60)).padStart(2,'0');
+  const s=String(sec%60).padStart(2,'0');
+  return `${m}:${s}`;
+}
+
+function startTimer(id){
+  const def  = timerDefs.find(d=>d.id === id);
+  const sel  = document.getElementById(`sel_${id}`);
+  const disp = document.getElementById(`disp_${id}`);
+  const row  = disp.parentElement;
+  const img  = document.getElementById(`img_${id}`);
+
+  /* 先停舊倒數，不重設選單 */
+  clearTimer(id, false);
+
+  const choice = sel.value;                                   // 目前選項
+  const sec = def.options.find(o=>o[0] === choice)?.[1] ?? null;
+
+  /* 立即同步圖示（就算是「無」也切換） */
+  updateIcon(def, choice, img);
+
+  /* 若選「無」就不開始倒數 */
+  if (sec === null){
+    disp.textContent = '00:00';
+    return;
+  }
+
+  /* 建立新的倒數 */
+  timers[id] = {
+    remain: sec,
+    intervalId: setInterval(() => {
+      timers[id].remain--;
+      disp.textContent = format(timers[id].remain);
+
+      if (timers[id].remain <= 0){
+        clearTimer(id);                   // 歸零 → 停倒數、選單回「無」
+        /* === ① 播提示音 === */
+        document.getElementById('ding')
+                .play()
+                .catch(()=>{});            // iOS 若未互動會拒絕，自行忽略
+        showToast(`${def.label} 已結束！`);
+
+        /* === ② 捲到頂 & 行變紅 === */
+        row.style.background = '#ffdddd';
+        document.querySelector('header')
+        .scrollIntoView({ behavior: 'smooth' });
+
+        /* === ③ 標題閃動 + 系統通知 === */
+        document.title = '⏰ 計時器時間到！';
+        if (Notification.permission === 'granted'){
+          new Notification(`${def.label} 已結束！`, {
+          body: '點擊可返回計時頁面',
+          icon: 'assets/bell.png'   
+        });
+        } else if (Notification.permission !== 'denied'){
+          Notification.requestPermission();
+        }
+        checkAllRows();
+      }
+    }, 1000)
+  };
+
+  disp.textContent = format(sec);
+  row.style.background = '';
+  checkAllRows();
+}
+
+
+function clearTimer(id, resetSelect = true){
+  if (timers[id]){
+    clearInterval(timers[id].intervalId);
+    delete timers[id];
+  }
+
+  const sel  = document.getElementById(`sel_${id}`);
+  const disp = document.getElementById(`disp_${id}`);
+  const img  = document.getElementById(`img_${id}`);
+  const def  = timerDefs.find(d=>d.id === id);
+
+  disp.textContent = '00:00';
+
+  if (resetSelect){            // 按「清除」或倒數結束時才恢復「無」
+    sel.value = '無';
+  }
+
+  updateIcon(def, sel.value, img);        // 圖示對應現在的選項
+  disp.parentElement.style.background = '';
+  checkAllRows();
+}
+
+/* 檢查是否所有 row 都是紅色；若否，取消整頁置頂  */
+function checkAllRows(){
+  const anyRed = [...document.querySelectorAll('.timer-row')]
+                 .some(r => r.style.background === 'rgb(255, 221, 221)');
+  if(!anyRed) document.title = '楓之谷工具箱';
+}
+
+/* 全部開始 / 全部清除 */
+document.getElementById('startAll').addEventListener('click',()=>{
+  timerDefs.forEach(def=> startTimer(def.id));
+});
+document.getElementById('clearAll').addEventListener('click',()=>{
+  timerDefs.forEach(def=> clearTimer(def.id));
+});
+
+  </script>
+<audio id="ding" src="assets/ding.mp3" preload="auto"></audio>
+<div id="toast" style="
+  position:fixed;right:1rem;bottom:1rem;z-index:9999;
+  background:#333;color:#fff;padding:.6rem 1rem;border-radius:8px;
+  opacity:0;transition:opacity .3s"></div>
+</body>
+</html>
