@@ -67,6 +67,30 @@
       color: #555;
     }
     footer{margin-top:auto;text-align:center;padding:1rem 0;font-size:.85rem;color:#666}
+    /* 偷星計算機結果表格 */
+    .starforce-result {
+      border-collapse: collapse;
+      width: 100%;
+      max-width: 500px;
+      margin-top: 1rem;
+    }
+    .starforce-result th,
+    .starforce-result td {
+      border: 1px solid #ccc;
+      padding: .5rem 1rem;
+    }
+    .starforce-result th {
+      background: #f8f8f8;
+      text-align: left;
+      width: 40%;
+    }
+    .starforce-result td {
+      text-align: right;
+    }
+    #starforce-advice {
+      font-size: 1rem;
+    }
+
   </style>
 </head>
 <body>
@@ -124,8 +148,248 @@
   </section>
 
 
+  <!-- 偷星計算機 -->
+  <section id="star">
+    <h2>偷星計算機</h2>
 
-  <section id="star"><h2>偷星計算機</h2><p>施工中…</p></section>
+    <!-- 星數設定 -->
+    <label>起始星數：
+      <select id="start-star"></select>
+    </label>
+    <label>目標星數：
+      <select id="target-star"></select>
+    </label>
+    <label>重置星數：
+      <select id="reset-star"></select>
+    </label>
+    <p class="note" style="font-size:.9rem;color:#666;margin-top:-.5rem;">
+      ※ 當降到此星數且又沒有保底成功時，你會再重上一張起始星捲
+    </p>
+
+    <!-- 抓星選項 -->
+    <label>是否抓星：
+      <select id="catch-star">
+        <option value="yes">是</option>
+        <option value="no">否</option>
+      </select>
+    </label>
+
+    <!-- 價格模式 -->
+    <label>價格類型：
+      <select id="currency-type">
+        <option value="twd">台幣</option>
+        <option value="meso">楓幣</option>
+      </select>
+    </label>
+
+    <!-- 台幣輸入群組 -->
+    <div id="twd-fields">
+      <label>起始星捲價格：<input type="number" id="start-price-twd" min="0.1" step="0.1">（元台幣）</label>
+      <label>目標星捲價格：<input type="number" id="target-price-twd" min="0.1" step="0.1">（元台幣）</label>
+    </div>
+    <!-- 楓幣輸入群組 -->
+    <div id="meso-fields" style="display:none;">
+      <label>起始星捲價格：<input type="number" id="start-price-meso" min="0.1" step="0.1">（億楓幣）</label>
+      <label>目標星捲價格：<input type="number" id="target-price-meso" min="0.1" step="0.1">（億楓幣）</label>
+      <label>每 1 億楓幣可兌換之楓點數：<input type="number" id="points-per-100m" min="0.1" step="0.1"></label>
+    </div>
+
+    <button id="calculate-btn">計算期望值</button>
+    <div id="result-area"></div>
+
+    <script>
+      // 快取元素
+      const startEl   = document.getElementById('start-star');
+      const targetEl  = document.getElementById('target-star');
+      const resetEl   = document.getElementById('reset-star');
+      const catchEl   = document.getElementById('catch-star');
+      const curType   = document.getElementById('currency-type');
+      const twdFlds   = document.getElementById('twd-fields');
+      const mesoFlds  = document.getElementById('meso-fields');
+      const btnCalc   = document.getElementById('calculate-btn');
+      const resultDiv = document.getElementById('result-area');
+
+      // 產生起始星 16～19
+      for (let i = 16; i <= 19; i++) {
+        startEl.add(new Option(i, i));
+      }
+      // 刷新目標與重置星
+      function refreshStars(){
+        const s = +startEl.value;
+        targetEl.length = 0;
+        for (let v = s+1; v <= 20; v++) targetEl.add(new Option(v, v));
+        resetEl.length = 0;
+        for (let v = 15; v < s; v++) resetEl.add(new Option(v, v));
+      }
+      startEl.addEventListener('change', refreshStars);
+      refreshStars();
+
+      // 價格欄位切換
+      function toggleFields(){
+        if(curType.value==='twd'){
+          twdFlds.style.display = '';
+          mesoFlds.style.display = 'none';
+        } else {
+          twdFlds.style.display = 'none';
+          mesoFlds.style.display = '';
+        }
+      }
+      curType.addEventListener('change', toggleFields);
+      toggleFields();
+
+      // 解線性方程組 (Gauss-Jordan)
+      function solve(A, b){
+        const n = A.length;
+        for(let i=0;i<n;i++){
+          let piv = A[i][i];
+          for(let j=i;j<n;j++) A[i][j] /= piv;
+          b[i] /= piv;
+          for(let k=0;k<n;k++){
+            if(k===i) continue;
+            const f = A[k][i];
+            for(let j=i;j<n;j++){
+              A[k][j] -= f * A[i][j];
+            }
+            b[k] -= f * b[i];
+          }
+        }
+        return b;
+      }
+
+      // 計算期望：50元嘗試次數 (x50)、9元保底次數 (x9)、初始星捲使用次數 (xScroll)
+      function calcExpect(sStar, tStar, P, resetStar){
+        const Q = 1 - P;
+        const states = [], idx = {};
+
+        for (let s = resetStar + 1; s < tStar; s++) {
+          idx[`${s},0`] = states.length; states.push({s,f:0});
+          idx[`${s},1`] = states.length; states.push({s,f:1});
+        }
+        const N = states.length;
+        const A = Array.from({length:N},()=>Array(N).fill(0));
+        const b50 = Array(N).fill(0), b9 = Array(N).fill(0), bScroll = Array(N).fill(0);
+
+        states.forEach((st,i)=>{
+          const {s,f} = st;
+          A[i][i] = 1;
+          b50[i] = 1;    // 每次嘗試都付 50 元
+          b9[i]  = 0;    // 保底費 9 元預設 0
+          // 成功 → (s+1, 0)
+          if (s+1 < tStar) {
+            A[i][ idx[`${s+1},0`] ] -= P;
+          }
+          // 失敗
+          if (f === 0) {
+            const down = s - 1;
+            if (down === resetStar) {
+              // 降到重置星 → 重置回起始星，並消耗初始星捲
+              A[i][ idx[`${sStar},0`] ] -= Q;
+              bScroll[i] += Q;    // ★ 新增：記錄一次初始星捲消耗
+            } else {
+              A[i][ idx[`${down},1`] ] -= Q;
+            }
+          } else {
+            // 第二次失敗 → 付 9 元保底，回到 (s, 0)
+            b9[i] += Q;
+            A[i][ idx[`${s},0`] ] -= Q;
+          }
+        });
+
+        // 求解三組期望
+        const sol50     = solve(A.map(r=>r.slice()), b50.slice());
+        const sol9      = solve(A.map(r=>r.slice()), b9.slice());
+        const solScroll = solve(A.map(r=>r.slice()), bScroll.slice());
+        const key = `${sStar},0`;
+
+        return {
+          x50: sol50[idx[key]],
+          x9: sol9[idx[key]],
+          xScroll: solScroll[idx[key]] + 1   // ★ 加上最初使用的 1 張
+        };
+      }
+
+      // 按下「計算期望值」
+      btnCalc.addEventListener('click', ()=>{
+        const s = +startEl.value;
+        const t = +targetEl.value;
+        const r = +resetEl.value;
+        const useCatch = catchEl.value==='yes';
+        const isTwd   = curType.value==='twd';
+        const P0 = 0.3 * (useCatch?1.05:1);
+
+        // 價格輸入
+        const sp = parseFloat(
+          isTwd
+            ? document.getElementById('start-price-twd').value
+            : document.getElementById('start-price-meso').value
+        );
+        const tp = parseFloat(
+          isTwd
+            ? document.getElementById('target-price-twd').value
+            : document.getElementById('target-price-meso').value
+        );
+        const pp = isTwd
+            ? null
+            : parseFloat(document.getElementById('points-per-100m').value);
+
+        // 驗證
+        if(!(t> s && r< s && sp>0 && tp>0 && (isTwd||pp>0))){
+          resultDiv.innerHTML = '<p style="color:red;">請確認：所有價格、兌換皆>0</p>';
+          return;
+        }
+
+        // 計算期望
+        const { x50, x9, xScroll } = calcExpect(s, t, P0, r);
+        const scrolls    = xScroll;
+        const clickCost  = x50*50 + x9*9;
+        let unit, scrollCost, clickCostDisplay;
+
+        if(isTwd){
+          unit = '元';
+          scrollCost = scrolls * sp;
+          clickCostDisplay = clickCost.toFixed(2);
+        } else {
+          unit = '億楓幣';
+          scrollCost = scrolls * sp;
+          clickCostDisplay = (clickCost / pp).toFixed(2);
+        }
+
+        const total = parseFloat(scrollCost) + parseFloat(clickCostDisplay);
+        const diff  = total - tp;
+        const cheaper = diff <= 0;
+        const advice = cheaper
+          ? `比直接購買目標星捲便宜 ${Math.abs(diff).toFixed(2)} ${unit}，手氣好可以試試！`
+          : `比直接購買目標星捲還貴 ${diff.toFixed(2)} ${unit}，期望值已經虧了，還要賭嗎？`;
+        const color = cheaper ? 'green' : 'red';
+
+        // 顯示結果
+        resultDiv.innerHTML = `
+          <table class="starforce-result">
+            <tr><th>點星期望次數(50元)</th><td>${x50.toFixed(2)} 次</td></tr>
+            <tr><th>保底成功期望次數(9元)</th><td>${x9.toFixed(2)} 次</td></tr>
+            <tr><th>點星總花費期望值</th><td>${clickCostDisplay} ${unit}</td></tr>
+            <tr><th>起始星捲張數期望值</th><td>${scrolls.toFixed(2)} 張</td></tr>
+            <tr><th>星捲總花費期望值</th><td>${scrollCost.toFixed(2)} ${unit}</td></tr>
+            <tr><th>總花費期望值</th><td style="font-weight:bold;">${total.toFixed(2)} ${unit}</td></tr>
+          </table>
+          <p id="starforce-advice" style="color:${color};font-weight:bold;margin-top:8px;">
+            ${advice}
+          </p>
+        `;
+      });
+    </script>
+  </section>
+
+
+  
+
+
+  
+  
+
+
+  
+  
 
 
 
@@ -246,7 +510,7 @@
   </table>`;
 });
 
-
+  
   /* ---------- 練等計時器：資料定義 ---------- */
   const timerDefs = [
   { id:'wealth_potion', label:'財物秘藥',
@@ -465,5 +729,7 @@ restartDone.addEventListener('click', () => {
   position:fixed;right:1rem;bottom:1rem;z-index:9999;
   background:#333;color:#fff;padding:.6rem 1rem;border-radius:8px;
   opacity:0;transition:opacity .3s"></div>
+
+
 </body>
 </html>
