@@ -487,7 +487,7 @@
         : parseFloat(document.getElementById('points-per-100m').value);
   
       if (!(t > s && sp > 0 && tp > 0 && (isTwd || pp > 0))) {
-        resultDiv.innerHTML = '<p style="color:red;">請確認所有輸入皆大於 0，且目標星數 > 起始星數</p>';
+        resultDiv.innerHTML = '<p style="color:red;">請確認所有輸入皆大於 0</p>';
         return;
       }
   
