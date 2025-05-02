@@ -90,7 +90,128 @@
     #starforce-advice {
       font-size: 1rem;
     }
+    /* 美化偷星計算機表格 */
+    .starforce-result {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0 8px;               /* 橫向無邊距，縱向 8px 間距 */
+      font-family: "Segoe UI", sans-serif;
+    }
+    .starforce-result th {
+      background: #e0f7fa;
+      padding: 8px 12px;
+      text-align: center;                  /* 標題置中 */
+      font-weight: 600;
+      color: #333;
+      border: none;
+    }
+    .starforce-result td {
+      background: #ffffff;
+      padding: 8px 12px;
+      text-align: center;                  /* 內容置中 */
+      color: #555;
+      border: none;
+    }
+    /* 讓第一欄的 row label 左對齊，比較好讀 */
+    .starforce-result tr td:first-child,
+    .starforce-result tr th:first-child {
+      text-align: left;
+      font-weight: 600;
+      background: none;
+    }
+    /* 交替換底色 */
+    .starforce-result tr:nth-child(even) td {
+      background: #f7f7f7;
+    }
+    /* 建議文字 */
+    #starforce-advice {
+      font-family: "Segoe UI", sans-serif;
+      font-size: 1.1rem;
+      margin-top: 12px;
+    }
+    /* 重新設定第一欄的底色 & 寬度，並用更高優先度覆蓋掉 background:none */
+    .starforce-result tr th:first-child,
+    .starforce-result tr td:first-child {
+      background: #eef7fc !important;
+      min-width: 140px !important;
+    }
 
+    /* 內容置中、垂直置中 */
+    .starforce-result th,
+    .starforce-result td {
+      text-align: center;
+      vertical-align: middle;
+    }
+
+    /* 第一欄標題欄位文字靠左 */
+    .starforce-result tr th:first-child {
+      padding-left: 16px;
+      text-align: left;  /* 這裡不用 !important，因為原本那段只有 background:none */
+    }
+    :root {
+      --sf-header-bg:   #e8f6ff;
+      --sf-alt-bg:      #f5f5f5;
+      --sf-first-bg:    #eaeaea;
+      --sf-best-bg:     #d4edda;
+      --sf-best-text:   #155724;
+      --sf-text:        #333;
+      --sf-green:       #155724;
+      --sf-red:         #721c24;
+    }
+
+    .starforce-result {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0 6px;
+      font-family: "Segoe UI",sans-serif;
+      margin-top: 1rem;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
+
+    .starforce-result th,
+    .starforce-result td {
+      padding: 10px 14px;
+      font-size: 0.95rem;
+      color: var(--sf-text);
+    }
+
+    /* 表头 */
+    .starforce-result th {
+      background: var(--sf-header-bg);
+      text-align: center;
+      font-weight: 600;
+      color: var(--sf-text);
+    }
+
+    /* 交替列 */
+    .starforce-result tr:nth-child(even) td {
+      background: var(--sf-alt-bg);
+    }
+
+    /* 第一欄 (“重置星數” + 各項名称) */
+    .starforce-result th:first-child,
+    .starforce-result td:first-child {
+      background: var(--sf-first-bg) !important;
+      text-align: left;
+      font-weight: 600;
+      padding-left: 18px;
+      min-width: 150px;
+    }
+
+    /* 最佳栏位 */
+    .starforce-result td.best {
+      background: var(--sf-best-bg) !important;
+      color: var(--sf-best-text) !important;
+    }
+
+    /* 建议文字 */
+    #starforce-advice {
+      font-family: "Segoe UI",sans-serif;
+      font-size: 1.05rem;
+      margin-top: 0.8rem;
+    }
   </style>
 </head>
 <body>
@@ -148,237 +269,294 @@
   </section>
 
 
-  <!-- 偷星計算機 -->
-  <section id="star">
-    <h2>偷星計算機</h2>
+<!-- 偷星計算機 -->
+<section id="star">
+  <h2>偷星計算機</h2>
 
-    <!-- 星數設定 -->
-    <label>起始星數：
-      <select id="start-star"></select>
-    </label>
-    <label>目標星數：
-      <select id="target-star"></select>
-    </label>
-    <label>重置星數：
-      <select id="reset-star"></select>
-    </label>
-    <p class="note" style="font-size:.9rem;color:#666;margin-top:-.5rem;">
-      ※ 當降到此星數且又沒有保底成功時，你會再重上一張起始星捲
-    </p>
+  <!-- 星數設定 -->
+  <label>起始星數：
+    <select id="start-star"></select>
+  </label>
+  <label>目標星數：
+    <select id="target-star"></select>
+  </label>
 
-    <!-- 抓星選項 -->
-    <label>是否抓星：
-      <select id="catch-star">
-        <option value="yes">是</option>
-        <option value="no">否</option>
-      </select>
-    </label>
+  <!-- 抓星選項 -->
+  <label>是否抓星：
+    <select id="catch-star">
+      <option value="yes">是</option>
+      <option value="no">否</option>
+    </select>
+  </label>
 
-    <!-- 價格模式 -->
-    <label>價格類型：
-      <select id="currency-type">
-        <option value="twd">台幣</option>
-        <option value="meso">楓幣</option>
-      </select>
-    </label>
+  <!-- 價格模式 -->
+  <label>價格類型：
+    <select id="currency-type">
+      <option value="twd">台幣</option>
+      <option value="meso">億楓幣</option>
+    </select>
+  </label>
 
-    <!-- 台幣輸入群組 -->
-    <div id="twd-fields">
-      <label>起始星捲價格：<input type="number" id="start-price-twd" min="0.1" step="0.1">（元台幣）</label>
-      <label>目標星捲價格：<input type="number" id="target-price-twd" min="0.1" step="0.1">（元台幣）</label>
-    </div>
-    <!-- 楓幣輸入群組 -->
-    <div id="meso-fields" style="display:none;">
-      <label>起始星捲價格：<input type="number" id="start-price-meso" min="0.1" step="0.1">（億楓幣）</label>
-      <label>目標星捲價格：<input type="number" id="target-price-meso" min="0.1" step="0.1">（億楓幣）</label>
-      <label>每 1 億楓幣可兌換之楓點數：<input type="number" id="points-per-100m" min="0.1" step="0.1"></label>
-    </div>
+  <!-- 台幣輸入 -->
+  <div id="twd-fields">
+    <label>起始星捲價格：<input type="number" id="start-price-twd" min="0.1" step="0.1">（元）</label>
+    <label>目標星捲價格：<input type="number" id="target-price-twd" min="0.1" step="0.1">（元）</label>
+  </div>
+  <!-- 楓幣輸入 -->
+  <div id="meso-fields" style="display:none;">
+    <label>起始星捲價格：<input type="number" id="start-price-meso" min="0.1" step="0.1">（億楓幣）</label>
+    <label>目標星捲價格：<input type="number" id="target-price-meso" min="0.1" step="0.1">（億楓幣）</label>
+    <label>每 1 億楓幣可兌換楓點：<input type="number" id="points-per-100m" min="0.1" step="0.1"></label>
+  </div>
 
-    <button id="calculate-btn">計算期望值</button>
-    <div id="result-area"></div>
+  <button id="calculate-btn">計算期望值</button>
+  <div id="result-area"></div>
 
-    <script>
-      // 快取元素
-      const startEl   = document.getElementById('start-star');
-      const targetEl  = document.getElementById('target-star');
-      const resetEl   = document.getElementById('reset-star');
-      const catchEl   = document.getElementById('catch-star');
-      const curType   = document.getElementById('currency-type');
-      const twdFlds   = document.getElementById('twd-fields');
-      const mesoFlds  = document.getElementById('meso-fields');
-      const btnCalc   = document.getElementById('calculate-btn');
-      const resultDiv = document.getElementById('result-area');
-
-      // 產生起始星 16～19
-      for (let i = 16; i <= 19; i++) {
-        startEl.add(new Option(i, i));
+  <script>
+    const HIGHLIGHT = '#007bff';
+  
+    // 快取 DOM
+    const startEl   = document.getElementById('start-star');
+    const targetEl  = document.getElementById('target-star');
+    const catchEl   = document.getElementById('catch-star');
+    const curType   = document.getElementById('currency-type');
+    const twdFlds   = document.getElementById('twd-fields');
+    const mesoFlds  = document.getElementById('meso-fields');
+    const btnCalc   = document.getElementById('calculate-btn');
+    const resultDiv = document.getElementById('result-area');
+  
+    // localStorage helper
+    const LS_GET = key => localStorage.getItem(key);
+    const LS_SET = (key, val) => localStorage.setItem(key, val);
+  
+    // 1. 起始星下拉：16～19，並還原上次
+    for (let i = 16; i <= 19; i++) {
+      startEl.add(new Option(i, i));
+    }
+    if (LS_GET('star_start')) {
+      startEl.value = LS_GET('star_start');
+    }
+  
+    // 2. 目標星動態產生函式
+    function refreshStars() {
+      const s = +startEl.value;
+      targetEl.length = 0;
+      for (let v = s + 1; v <= 20; v++) {
+        targetEl.add(new Option(v, v));
       }
-      // 刷新目標與重置星
-      function refreshStars(){
-        const s = +startEl.value;
-        targetEl.length = 0;
-        for (let v = s+1; v <= 20; v++) targetEl.add(new Option(v, v));
-        resetEl.length = 0;
-        for (let v = 15; v < s; v++) resetEl.add(new Option(v, v));
+      const t = LS_GET('star_target');
+      if (t && targetEl.querySelector(`option[value="${t}"]`)) {
+        targetEl.value = t;
+      } else {
+        targetEl.value = '20';
+        LS_SET('star_target','20');
       }
-      startEl.addEventListener('change', refreshStars);
+    }
+  
+    // 3. 綁定事件：起始星／目標星
+    startEl.addEventListener('change', () => {
+      LS_SET('star_start', startEl.value);
       refreshStars();
-
-      // 價格欄位切換
-      function toggleFields(){
-        if(curType.value==='twd'){
-          twdFlds.style.display = '';
-          mesoFlds.style.display = 'none';
-        } else {
-          twdFlds.style.display = 'none';
-          mesoFlds.style.display = '';
-        }
-      }
-      curType.addEventListener('change', toggleFields);
+    });
+    targetEl.addEventListener('change', () => {
+      LS_SET('star_target', targetEl.value);
+    });
+    refreshStars();
+  
+    // 4. 是否抓星
+    if (LS_GET('star_catch')) {
+      catchEl.value = LS_GET('star_catch');
+    }
+    catchEl.addEventListener('change', () => {
+      LS_SET('star_catch', catchEl.value);
+    });
+  
+    // 5. 價格模式切換
+    if (LS_GET('star_type')) {
+      curType.value = LS_GET('star_type');
+    }
+    curType.addEventListener('change', () => {
+      LS_SET('star_type', curType.value);
       toggleFields();
-
-      // 解線性方程組 (Gauss-Jordan)
-      function solve(A, b){
-        const n = A.length;
-        for(let i=0;i<n;i++){
-          let piv = A[i][i];
-          for(let j=i;j<n;j++) A[i][j] /= piv;
-          b[i] /= piv;
-          for(let k=0;k<n;k++){
-            if(k===i) continue;
-            const f = A[k][i];
-            for(let j=i;j<n;j++){
-              A[k][j] -= f * A[i][j];
-            }
-            b[k] -= f * b[i];
-          }
-        }
-        return b;
+    });
+    function toggleFields() {
+      if (curType.value === 'twd') {
+        twdFlds.style.display = '';
+        mesoFlds.style.display = 'none';
+      } else {
+        twdFlds.style.display = 'none';
+        mesoFlds.style.display = '';
       }
-
-      // 計算期望：50元嘗試次數 (x50)、9元保底次數 (x9)、初始星捲使用次數 (xScroll)
-      function calcExpect(sStar, tStar, P, resetStar){
-        const Q = 1 - P;
-        const states = [], idx = {};
-
-        for (let s = resetStar + 1; s < tStar; s++) {
-          idx[`${s},0`] = states.length; states.push({s,f:0});
-          idx[`${s},1`] = states.length; states.push({s,f:1});
-        }
-        const N = states.length;
-        const A = Array.from({length:N},()=>Array(N).fill(0));
-        const b50 = Array(N).fill(0), b9 = Array(N).fill(0), bScroll = Array(N).fill(0);
-
-        states.forEach((st,i)=>{
-          const {s,f} = st;
-          A[i][i] = 1;
-          b50[i] = 1;    // 每次嘗試都付 50 元
-          b9[i]  = 0;    // 保底費 9 元預設 0
-          // 成功 → (s+1, 0)
-          if (s+1 < tStar) {
-            A[i][ idx[`${s+1},0`] ] -= P;
+    }
+    toggleFields();
+  
+    // 6. 各價格欄位存取
+    [
+      ['start-price-twd','star_sp_twd'],
+      ['target-price-twd','star_tp_twd'],
+      ['start-price-meso','star_sp_meso'],
+      ['target-price-meso','star_tp_meso'],
+      ['points-per-100m','star_pp']
+    ].forEach(([id, key]) => {
+      const el = document.getElementById(id);
+      if (LS_GET(key)) el.value = LS_GET(key);
+      el.addEventListener('change', () => LS_SET(key, el.value));
+    });
+  
+    // -------------------- 原本的計算邏輯 --------------------
+  
+    // 解線性方程式 (Gauss-Jordan)
+    function solve(A, b) {
+      const n = A.length;
+      for (let i = 0; i < n; i++) {
+        const piv = A[i][i];
+        for (let j = i; j < n; j++) A[i][j] /= piv;
+        b[i] /= piv;
+        for (let k = 0; k < n; k++) {
+          if (k === i) continue;
+          const f = A[k][i];
+          for (let j = i; j < n; j++) {
+            A[k][j] -= f * A[i][j];
           }
-          // 失敗
-          if (f === 0) {
-            const down = s - 1;
-            if (down === resetStar) {
-              // 降到重置星 → 重置回起始星，並消耗初始星捲
-              A[i][ idx[`${sStar},0`] ] -= Q;
-              bScroll[i] += Q;    // ★ 新增：記錄一次初始星捲消耗
-            } else {
-              A[i][ idx[`${down},1`] ] -= Q;
-            }
+          b[k] -= f * b[i];
+        }
+      }
+      return b;
+    }
+  
+    // 計算期望
+    function calcExpect(sStar, tStar, P, resetStar) {
+      const Q = 1 - P, states = [], idx = {};
+      for (let s = resetStar + 1; s < tStar; s++) {
+        idx[`${s},0`] = states.length; states.push({ s, f: 0 });
+        idx[`${s},1`] = states.length; states.push({ s, f: 1 });
+      }
+      const N = states.length;
+      const A = Array.from({ length: N }, () => Array(N).fill(0));
+      const b50 = Array(N).fill(0), b9 = Array(N).fill(0), bS = Array(N).fill(0);
+  
+      states.forEach((st, i) => {
+        const { s, f } = st;
+        A[i][i] = 1; b50[i] = 1; b9[i] = 0;
+        if (s + 1 < tStar) A[i][idx[`${s+1},0`]] -= P;
+        if (f === 0) {
+          const down = s - 1;
+          if (down === resetStar) {
+            A[i][idx[`${sStar},0`]] -= Q;
+            bS[i] += Q;
           } else {
-            // 第二次失敗 → 付 9 元保底，回到 (s, 0)
-            b9[i] += Q;
-            A[i][ idx[`${s},0`] ] -= Q;
+            A[i][idx[`${down},1`]] -= Q;
           }
-        });
-
-        // 求解三組期望
-        const sol50     = solve(A.map(r=>r.slice()), b50.slice());
-        const sol9      = solve(A.map(r=>r.slice()), b9.slice());
-        const solScroll = solve(A.map(r=>r.slice()), bScroll.slice());
-        const key = `${sStar},0`;
-
-        return {
-          x50: sol50[idx[key]],
-          x9: sol9[idx[key]],
-          xScroll: solScroll[idx[key]] + 1   // ★ 加上最初使用的 1 張
-        };
-      }
-
-      // 按下「計算期望值」
-      btnCalc.addEventListener('click', ()=>{
-        const s = +startEl.value;
-        const t = +targetEl.value;
-        const r = +resetEl.value;
-        const useCatch = catchEl.value==='yes';
-        const isTwd   = curType.value==='twd';
-        const P0 = 0.3 * (useCatch?1.05:1);
-
-        // 價格輸入
-        const sp = parseFloat(
-          isTwd
-            ? document.getElementById('start-price-twd').value
-            : document.getElementById('start-price-meso').value
-        );
-        const tp = parseFloat(
-          isTwd
-            ? document.getElementById('target-price-twd').value
-            : document.getElementById('target-price-meso').value
-        );
-        const pp = isTwd
-            ? null
-            : parseFloat(document.getElementById('points-per-100m').value);
-
-        // 驗證
-        if(!(t> s && r< s && sp>0 && tp>0 && (isTwd||pp>0))){
-          resultDiv.innerHTML = '<p style="color:red;">請確認：所有價格、兌換皆>0</p>';
-          return;
-        }
-
-        // 計算期望
-        const { x50, x9, xScroll } = calcExpect(s, t, P0, r);
-        const scrolls    = xScroll;
-        const clickCost  = x50*50 + x9*9;
-        let unit, scrollCost, clickCostDisplay;
-
-        if(isTwd){
-          unit = '元';
-          scrollCost = scrolls * sp;
-          clickCostDisplay = clickCost.toFixed(2);
         } else {
-          unit = '億楓幣';
-          scrollCost = scrolls * sp;
-          clickCostDisplay = (clickCost / pp).toFixed(2);
+          b9[i] += Q;
+          A[i][idx[`${s},0`]] -= Q;
         }
-
-        const total = parseFloat(scrollCost) + parseFloat(clickCostDisplay);
-        const diff  = total - tp;
-        const cheaper = diff <= 0;
-        const advice = cheaper
-          ? `比直接購買目標星捲便宜 ${Math.abs(diff).toFixed(2)} ${unit}，手氣好可以試試！`
-          : `比直接購買目標星捲還貴 ${diff.toFixed(2)} ${unit}，期望值已經虧了，還要賭嗎？`;
-        const color = cheaper ? 'green' : 'red';
-
-        // 顯示結果
-        resultDiv.innerHTML = `
-          <table class="starforce-result">
-            <tr><th>點星期望次數(50元)</th><td>${x50.toFixed(2)} 次</td></tr>
-            <tr><th>保底成功期望次數(9元)</th><td>${x9.toFixed(2)} 次</td></tr>
-            <tr><th>點星總花費期望值</th><td>${clickCostDisplay} ${unit}</td></tr>
-            <tr><th>起始星捲張數期望值</th><td>${scrolls.toFixed(2)} 張</td></tr>
-            <tr><th>星捲總花費期望值</th><td>${scrollCost.toFixed(2)} ${unit}</td></tr>
-            <tr><th>總花費期望值</th><td style="font-weight:bold;">${total.toFixed(2)} ${unit}</td></tr>
-          </table>
-          <p id="starforce-advice" style="color:${color};font-weight:bold;margin-top:8px;">
-            ${advice}
-          </p>
-        `;
       });
-    </script>
-  </section>
+  
+      const sol50 = solve(A.map(r => r.slice()), b50.slice());
+      const sol9  = solve(A.map(r => r.slice()), b9.slice());
+      const solS  = solve(A.map(r => r.slice()), bS.slice());
+      const key   = `${sStar},0`;
+      return {
+        x50: sol50[idx[key]],
+        x9:  sol9[idx[key]],
+        xScroll: solS[idx[key]] + 1
+      };
+    }
+  
+    // 按鈕事件：計算並顯示
+    btnCalc.addEventListener('click', () => {
+      const s        = +startEl.value;
+      const t        = +targetEl.value;
+      const useCatch = catchEl.value === 'yes';
+      const isTwd    = curType.value === 'twd';
+      const P0       = 0.3 * (useCatch ? 1.05 : 1);
+  
+      const sp = parseFloat(
+        isTwd
+          ? document.getElementById('start-price-twd').value
+          : document.getElementById('start-price-meso').value
+      );
+      const tp = parseFloat(
+        isTwd
+          ? document.getElementById('target-price-twd').value
+          : document.getElementById('target-price-meso').value
+      );
+      const pp = isTwd
+        ? 1
+        : parseFloat(document.getElementById('points-per-100m').value);
+  
+      if (!(t > s && sp > 0 && tp > 0 && (isTwd || pp > 0))) {
+        resultDiv.innerHTML = '<p style="color:red;">請確認所有輸入皆大於 0，且目標星數 > 起始星數</p>';
+        return;
+      }
+  
+      // 每個 resetStar 計算
+      const results = [];
+      for (let r = 15; r < s; r++) {
+        const { x50, x9, xScroll } = calcExpect(s, t, P0, r);
+  
+        // ★ 注意這裡：rawClick 是楓點，轉成幣值要除以 pp（若不是台幣）
+        const rawClick   = x50 * 50 + x9 * 9;
+        const clickCost  = isTwd ? rawClick : rawClick / pp;
+        const scrollCost = xScroll * sp;
+        const total      = clickCost + scrollCost;
+  
+        results.push({ r, x50, x9, clickCost, xScroll, scrollCost, total });
+      }
+  
+      // 找最便宜的
+      let best = results[0];
+      results.forEach(d => { if (d.total < best.total) best = d; });
+      const unit = isTwd ? '元' : '億楓幣';
+  
+      // 組表格
+      let html = `<p style="font-size:.9rem;color:#666;margin:1rem 0 .5rem;">
+                    ※重置星數：當降至此星數且未保底，會重上一張起始星捲
+                  </p>
+                  <table class="starforce-result" style="white-space:nowrap;">
+                    <tr><th>重置星數</th>${results.map(d=>`<th>${d.r}星</th>`).join('')}</tr>`;
+      const rows = [
+        { name:'點星期望次數(50元)', key:'x50',     fmt:v=>v.toFixed(2)+' 次' },
+        { name:'保底成功期望次數(9元)', key:'x9',   fmt:v=>v.toFixed(2)+' 次' },
+        { name:'點星總花費期望值',       key:'clickCost', fmt:v=>v.toFixed(2)+' '+unit },
+        { name:'起始星捲張數期望值',    key:'xScroll',    fmt:v=>v.toFixed(2)+' 張' },
+        { name:'星捲總花費期望值',       key:'scrollCost', fmt:v=>v.toFixed(2)+' '+unit },
+        { name:'總花費期望值',          key:'total',      fmt:v=>v.toFixed(2)+' '+unit },
+        { name:'比起目標星捲',          key:'total',      fmt:v=>{
+            const diff = v - tp;
+            return diff<=0
+              ? `<strong style="color:var(--sf-green)">便宜 ${Math.abs(diff).toFixed(2)} ${unit}</strong>`
+              : `<strong style="color:var(--sf-red)">貴 ${diff.toFixed(2)} ${unit}</strong>`;
+          }}
+      ];
+      rows.forEach(row => {
+        html += `<tr><th>${row.name}</th>`;
+        results.forEach(d => {
+          html += `<td${d.r===best.r?' class="best"':''}>${row.fmt(d[row.key])}</td>`;
+        });
+        html += `</tr>`;
+      });
+      html += `</table>`;
+  
+      // 建議文字
+      const diff = best.total - tp;
+      const advice = diff<=0
+        ? `比直接購買目標星捲便宜 ${Math.abs(diff).toFixed(2)} ${unit}，手氣好可以試試！`
+        : `比直接購買目標星捲還貴 ${diff.toFixed(2)} ${unit}，期望值已經虧了，還要賭嗎？`;
+      html += `<p id="starforce-advice" style="margin-top:.75rem;font-weight:bold;">
+                 <span style="color:${HIGHLIGHT};">重置星數設為 ${best.r} 星最划算</span>
+                 <span style="color:${diff<=0?'green':'red'};">${advice}</span>
+               </p>`;
+  
+      resultDiv.innerHTML = html;
+    });
+  </script>
+  
+</section>
+
+
+
 
 
   
